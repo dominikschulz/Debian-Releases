@@ -26,6 +26,13 @@ Debian::Releases - Comparing debian releases
 
 =cut
 
+has 'release_data' => (
+    'is'      => 'ro',
+    'isa'     => 'HashRef',
+    'lazy'    => 1,
+    'builder' => '_init_release_data',
+);
+
 has 'releases' => (
     'is'      => 'ro',
     'isa'     => 'HashRef[Str]',
@@ -40,25 +47,107 @@ has 'codenames' => (
     'builder' => '_init_codenames',
 );
 
-sub _init_releases {
+sub _init_release_data {
     my $self = shift;
     my $rels = {
-        '1.1'       => 'buzz',
-        '1.2'       => 'rex',
-        '1.3'       => 'bo',
-        '2.0'       => 'hamm',
-        '2.1'       => 'slink',
-        '2.2'       => 'potato',
-        '3.0'       => 'woody',
-        '3.1'       => 'sarge',
-        '4.0'       => 'etch',
-        '5.0'       => 'lenny',
-        '6.0'       => 'squeeze',
-        '7.0'       => 'wheezy',
-        '8.0'       => 'jessie',
-        '9999.9999' => 'sid',
+        '1.1'       => {
+          'codename'        => 'buzz',
+          'release_date'    => 834969600,
+          'support_until'   => 844128000,
+          'point_releases'  => {},
+        },
+        '1.2'       => {
+          'codename'        => 'rex',
+          'release_date'    => 850348800,
+          'support_until'   => 851990400,
+          'point_releases'  => {},
+        },
+        '1.3'       => {
+          'codename'        => 'bo',
+          'release_date'    => 865468800,
+          'support_until'   => 883526400,
+          'point_releases'  => {},
+        },
+        '2.0'       => {
+          'codename'        => 'hamm',
+          'release_date'    => 869702400,
+          'support_until'   => 915062400,
+          'point_releases'  => {},
+        },
+        '2.1'       => {
+          'codename'        => 'slink',
+          'release_date'    => 920937600,
+          'support_until'   => 978220800,
+          'point_releases'  => {},
+        },
+        '2.2'       => {
+          'codename'        => 'potato',
+          'release_date'    => 966297600,
+          'support_until'   => 1051747200,
+          'point_releases'  => {},
+        },
+        '3.0'       => {
+          'codename'        => 'woody',
+          'release_date'    => 1029715200,
+          'support_until'   => 1156982400,
+          'point_releases'  => {},
+        },
+        '3.1'       => {
+          'codename'        => 'sarge',
+          'release_date'    => 1118016000,
+          'support_until'   => 1209600000,
+          'point_releases'  => {},
+        },
+        '4.0'       => {
+          'codename'        => 'etch',
+          'release_date'    => 1175990400,
+          'support_until'   => 1266192000,
+          'point_releases'  => {},
+        },
+        '5.0'       => {
+          'codename'        => 'lenny',
+          'release_date'    => 1234656000,
+          'support_until'   => 1328486400,
+          'point_releases'  => {},
+        },
+        '6.0'       => {
+          'codename'        => 'squeeze',
+          'release_date'    => 1296950400,
+          'support_until'   => 1456617600,
+          'point_releases'  => {},
+        },
+        '7.0'       => {
+          'codename'        => 'wheezy',
+          'release_date'    => 1367625600,
+          'support_until'   => 0,
+          'point_releases'  => {},
+        },
+        '8.0'       => {
+          'codename'        => 'jessie',
+          'release_date'    => 0,
+          'support_until'   => 0,
+          'point_releases'  => {},
+        },
+        '9999.9999' => {
+          'codename'        => 'sid',
+          'release_date'    => 0,
+          'support_until'   => 0,
+          'point_releases'  => {},
+        },
     };
     return $rels;
+}
+
+sub _init_releases {
+  my $self    = shift;
+  my $reldata = $self->release_data();
+  my $rels    = {};
+
+  foreach my $version ( keys %{ $reldata } ) {
+    $rels->{$version} = $reldata->{$version}->{'codename'};
+  }
+
+  return $rels;
 }
 
 sub _init_codenames {
@@ -113,6 +202,52 @@ sub version_compare {
     return Version::Compare::version_compare( $left, $right );
 }
 ## use critic
+
+=head2 is_released
+
+Return a true value (actually the version this was released as) if a given codename
+is a valid Debian release which was already released.
+
+=cut
+sub is_released {
+  my $self      = shift;
+  my $codename  = shift;
+  my $ver       = $self->codenames()->{$codename};
+
+  # do we know anything about this release?
+  return unless $ver;
+
+  # do we know anything about the release date?
+  return unless $self->release_data()->{$ver}->{'release_date'};
+
+  if ( time() >= $self->release_data()->{$ver}->{'release_date'} ) {
+    return $ver;
+  } else {
+    return;
+  }
+}
+
+=head2 is_supported
+
+Return a true value if a given codename is a valid Debian release
+which is still supported (normal or LTS support yields true).
+
+=cut
+sub is_supported {
+  my $self      = shift;
+  my $codename  = shift;
+  my $ver       = $self->is_released($codename);
+
+  # do we know this release?
+  return unless $ver;
+
+  if ( !$self->release_data()->{$ver}->{'support_until'} || 
+    time() <= $self->release_data()->{$ver}->{'support_until'}) {
+    return 1;
+  } else {
+    return;
+  }
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable();

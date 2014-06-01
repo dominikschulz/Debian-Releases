@@ -32,3 +32,4 @@ foreach my $ver (keys %$rels) {
     is($DR->version_compare($ver,'sid'),-1,$ver.' < sid');
     is($DR->version_compare($code,'sid'),-1,$code.' < sid');
 }
+
